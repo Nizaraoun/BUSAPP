@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class ProfilePage extends StatefulWidget {
-  const ProfilePage({Key? key}) : super(key: key);
+  const ProfilePage({super.key});
 
   @override
   State<ProfilePage> createState() => _ProfilePageState();
@@ -41,13 +42,20 @@ class _ProfilePageState extends State<ProfilePage> {
     });
 
     try {
-      // Vous aurez normalement besoin de récupérer l'ID utilisateur actuel
-      // Cet exemple suppose que vous avez un utilisateur courant avec ID "currentUserId"
-      // Dans une application réelle, vous obtiendrez cet ID via l'authentification Firebase
-      String currentUserId = "currentUserId";
+      // Récupérer l'ID utilisateur actuel via Firebase Auth
+      final User? currentUser = FirebaseAuth.instance.currentUser;
 
+      if (currentUser == null) {
+        setState(() {
+          errorMessage = "Aucun utilisateur connecté";
+          isLoading = false;
+        });
+        return;
+      }
+
+      final String userId = currentUser.uid;
       DocumentSnapshot userDoc =
-          await _firestore.collection('users').doc(currentUserId).get();
+          await _firestore.collection('users').doc(userId).get();
 
       if (userDoc.exists) {
         setState(() {
@@ -55,7 +63,7 @@ class _ProfilePageState extends State<ProfilePage> {
           isLoading = false;
 
           // Initialiser les contrôleurs avec les données actuelles
-          _nameController.text = userData['nomcomplet'] ?? "";
+          _nameController.text = userData['nomComplet'] ?? "";
           _emailController.text = userData['email'] ?? "";
           _phoneController.text = userData['telephone'] ?? "";
         });
@@ -80,17 +88,28 @@ class _ProfilePageState extends State<ProfilePage> {
     });
 
     try {
-      String currentUserId = "currentUserId";
+      // Récupérer l'ID utilisateur actuel via Firebase Auth
+      final User? currentUser = FirebaseAuth.instance.currentUser;
 
-      await _firestore.collection('users').doc(currentUserId).update({
-        'nomcomplet': _nameController.text,
+      if (currentUser == null) {
+        setState(() {
+          errorMessage = "Aucun utilisateur connecté";
+          isLoading = false;
+        });
+        return;
+      }
+
+      final String userId = currentUser.uid;
+
+      await _firestore.collection('users').doc(userId).update({
+        'nomComplet': _nameController.text,
         'email': _emailController.text,
         'telephone': _phoneController.text,
       });
 
       // Mettre à jour les données locales
       setState(() {
-        userData['nomcomplet'] = _nameController.text;
+        userData['nomComplet'] = _nameController.text;
         userData['email'] = _emailController.text;
         userData['telephone'] = _phoneController.text;
         isEditing = false;
@@ -205,7 +224,7 @@ class _ProfilePageState extends State<ProfilePage> {
                         setState(() {
                           isEditing = false;
                           // Réinitialiser les contrôleurs avec les données actuelles
-                          _nameController.text = userData['nomcomplet'] ?? "";
+                          _nameController.text = userData['nomComplet'] ?? "";
                           _emailController.text = userData['email'] ?? "";
                           _phoneController.text = userData['telephone'] ?? "";
                         });
@@ -260,7 +279,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 ),
               )
             : Text(
-                userData['nomcomplet'] ?? "Nom d'utilisateur",
+                userData['nomComplet'] ?? "Nom d'utilisateur",
                 style: const TextStyle(
                   fontSize: 24,
                   fontWeight: FontWeight.bold,

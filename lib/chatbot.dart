@@ -141,7 +141,8 @@ class _ChatPageState extends State<ChatPage> {
       if (selectedBus.isNotEmpty) {
         final busDoc =
             await _firestore.collection('buses').doc(selectedBus['id']).get();
-        final List<dynamic> stations = busDoc.data()?['station'] ?? [];
+        final List<dynamic> stations =
+            busDoc.data()?['station'] ?? busDoc.data()?['stations'] ?? [];
 
         List<String> stationNames = [];
         for (var station in stations) {

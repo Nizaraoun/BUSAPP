@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_application_1/acceuil.dart';
 import 'package:flutter_application_1/authentication.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -15,7 +16,6 @@ class _LoginPageState extends State<LoginPage> {
   final TextEditingController passwordController = TextEditingController();
   bool _obscurePassword = true;
   bool _isLoading = false;
-
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
   void _login() async {
@@ -30,8 +30,15 @@ class _LoginPageState extends State<LoginPage> {
     setState(() => _isLoading = true);
 
     try {
-      await _auth.signInWithEmailAndPassword(email: email, password: password);
-      debugPrint("Connexion réussie !");
+      // First authenticate the user
+      UserCredential userCredential = await _auth.signInWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+
+      debugPrint("Connexion réussie ! User: ${userCredential.user?.email}");
+
+      // Skip SharedPreferences for now since it's causing issues
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (context) => const AccueilPage()),

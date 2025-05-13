@@ -1,38 +1,37 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_application_1/acceuil.dart';
-import 'package:flutter_application_1/authentication.dart';
+import 'package:flutter_application_1/chauffeur_fixed.dart';
+import 'package:flutter_application_1/firebase_options.dart';
 import 'package:flutter_application_1/login.dart';
-// Fichier généré par FlutterFire CLI
 
-void main() async {
+Future<void> main() async {
+  // Ensure Flutter is initialized
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialisation de Firebase avec gestion d'erreur complète
+  // Initialize Firebase
   try {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
     debugPrint("Firebase initialisé avec succès");
+
+    // Uncomment the line below to seed initial data for buses and bus stops
+    // await FirebaseDataSeeder().seedAllData();
   } catch (e) {
     debugPrint("Erreur d'initialisation Firebase: $e");
-    rethrow; // Propager l'erreur pour un traitement ultérieur
   }
 
-  runApp(const BusTrackerApp());
+  runApp(const SotregamesApp());
 }
 
-class DefaultFirebaseOptions {
-  static var currentPlatform;
-}
-
-class BusTrackerApp extends StatelessWidget {
-  const BusTrackerApp({Key? key}) : super(key: key);
+class SotregamesApp extends StatelessWidget {
+  const SotregamesApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Bus Tracker',
+      title: 'Sotregames',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorScheme: ColorScheme.light(
