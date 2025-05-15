@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_application_1/acceuil.dart';
 import 'package:flutter_application_1/authentication.dart';
+import 'package:flutter_application_1/chauffeur_fixed.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class LoginPage extends StatefulWidget {
@@ -29,8 +30,20 @@ class _LoginPageState extends State<LoginPage> {
 
     setState(() => _isLoading = true);
 
+    // Check if this is the driver login
+    if (email == "chauffeur@sotregames.tn" && password == "sotregames123") {
+      debugPrint("Connexion chauffeur réussie !");
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+            builder: (context) => const DriverMapScreen(driverId: "1")),
+      );
+      setState(() => _isLoading = false);
+      return;
+    }
+
     try {
-      // First authenticate the user
+      // Regular user authentication with Firebase
       UserCredential userCredential = await _auth.signInWithEmailAndPassword(
         email: email,
         password: password,
@@ -38,7 +51,6 @@ class _LoginPageState extends State<LoginPage> {
 
       debugPrint("Connexion réussie ! User: ${userCredential.user?.email}");
 
-      // Skip SharedPreferences for now since it's causing issues
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (context) => const AccueilPage()),

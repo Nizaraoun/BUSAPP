@@ -8,6 +8,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 import 'ably_service.dart';
 import 'map_legend.dart';
 
@@ -31,7 +32,6 @@ class _MapScreenState extends State<MapScreen> {
   final Set<Marker> _markers = {};
   final Set<Polyline> _polylines = {};
   final Set<Circle> _circles = {};
-
   // User's current position
   Position? _currentPosition;
   StreamSubscription<Position>? _positionStreamSubscription;
@@ -43,6 +43,10 @@ class _MapScreenState extends State<MapScreen> {
   // For loading indicators
   bool _isLoadingBusStops = false;
   bool _isLoadingBuses = false;
+
+  // For automatic driver tracking
+  bool _isFirstDriverUpdate = true;
+  bool _autoFocusOnDriver = true; // Set to true to enable automatic focusing
 
   // FirebaseFirestore instance
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -63,6 +67,9 @@ class _MapScreenState extends State<MapScreen> {
     super.initState();
     // Load map styles
     _loadMapStyles();
+
+    // Load auto-focus preference
+    _loadAutoFocusPreference();
 
     // Request location permission and get current location
     _requestLocationPermission();
@@ -1347,12 +1354,34 @@ class _MapScreenState extends State<MapScreen> {
       // Initialize Ably service
       await _ablyService.initialize();
 
-      // Subscribe to driver location updates (using driverId "1" based on the logs)
-      _subscribeToDriverLocation("1");
+      // Show a message that we're connecting to driver tracking
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Connexion au service de suivi des chauffeurs...'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+
+      // Hard-coded driver IDs for testing (in a real app, these would come from your backend)
+      final List<String> driverIds = ["1"];
+
+      // Subscribe to all driver location updates
+      for (final driverId in driverIds) {
+        _subscribeToDriverLocation(driverId);
+      }
 
       debugPrint('Ably service initialized and subscribed to driver locations');
     } catch (e) {
       debugPrint('Error initializing Ably service: $e');
+      // Show error message
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur de connexion au service de suivi: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
@@ -1371,24 +1400,59 @@ class _MapScreenState extends State<MapScreen> {
       print('Error subscribing to driver location: $e');
       debugPrint('Error subscribing to driver location: $e');
     }
-  }
+  } // Update driver marker on the map
 
-  // Update driver marker on the map
   void _updateDriverMarker(dynamic locationData) {
-    if (locationData == null) return;
+    if (locationData == null) {
+      debugPrint('Warning: Received null location data');
+      return;
+    }
 
     try {
+      debugPrint('Raw location data received: $locationData');
+      
       // Convert data to Map if it's not already
-      final Map<String, dynamic> data = locationData is Map<String, dynamic>
-          ? locationData
-          : json.decode(locationData.toString());
+      Map<String, dynamic> data;
+      if (locationData is Map<dynamic, dynamic>) {
+        // Convert from Map<dynamic, dynamic> to Map<String, dynamic>
+        data = {};
+        locationData.forEach((key, value) {
+          data[key.toString()] = value;
+        });
+        debugPrint('Converted dynamic map to string map: $data');
+      } else if (locationData is Map<String, dynamic>) {
+        data = locationData;
+        debugPrint('Already in correct format: $data');
+      } else if (locationData is String) {
+        data = json.decode(locationData) as Map<String, dynamic>;
+        debugPrint('Parsed from string: $data');
+      } else {
+        data = json.decode(locationData.toString()) as Map<String, dynamic>;
+        debugPrint('Parsed from toString(): $data');
+      }
+
+      // Validate required fields exist
+      if (!data.containsKey('driverId') || !data.containsKey('latitude') || 
+          !data.containsKey('longitude') || !data.containsKey('status') || 
+          !data.containsKey('timestamp')) {
+        debugPrint('Error: Missing required fields in data: $data');
+        return;
+      }
 
       // Extract location data
       final String driverId = data['driverId'].toString();
-      final double latitude = double.parse(data['latitude'].toString());
-      final double longitude = double.parse(data['longitude'].toString());
+      final double latitude = double.tryParse(data['latitude'].toString()) ?? 0.0;
+      final double longitude = double.tryParse(data['longitude'].toString()) ?? 0.0;
       final String status = data['status'].toString();
       final String timestamp = data['timestamp'].toString();
+
+      debugPrint('Parsed driver data - ID: $driverId, Lat: $latitude, Lng: $longitude, Status: $status');
+
+      // Check for valid coordinates
+      if (latitude == 0.0 && longitude == 0.0) {
+        debugPrint('Warning: Invalid coordinates (0,0), skipping marker update');
+        return;
+      }
 
       // Create unique marker ID for this driver
       final String markerId = 'driver-$driverId';
@@ -1400,10 +1464,11 @@ class _MapScreenState extends State<MapScreen> {
         _markers.removeWhere((marker) => marker.markerId.value == markerId);
 
         // Add new marker for driver location
+        final LatLng driverPosition = LatLng(latitude, longitude);
         _markers.add(
           Marker(
             markerId: MarkerId(markerId),
-            position: LatLng(latitude, longitude),
+            position: driverPosition,
             infoWindow: InfoWindow(
               title: 'Driver $driverId',
               snippet:
@@ -1411,14 +1476,69 @@ class _MapScreenState extends State<MapScreen> {
             ),
             icon: BitmapDescriptor.defaultMarkerWithHue(
                 BitmapDescriptor.hueYellow),
+            visible: true, // Ensure the marker is visible
           ),
         );
+        
+        debugPrint('Marker added/updated for driver $driverId. Total markers: ${_markers.length}');
+        
+        // Debug all markers
+        int index = 0;
+        for (var marker in _markers) {
+          debugPrint('Marker $index: id=${marker.markerId.value}, pos=${marker.position}, visible=${marker.visible}');
+          index++;
+        }
       });
+
+      // Automatically focus on the driver's position 
+      // Either on first update or if auto-focus is enabled
+      if (_isFirstDriverUpdate || _autoFocusOnDriver) {
+        final LatLng driverPosition = LatLng(latitude, longitude);
+        _animateToDriverPosition(driverPosition);
+        
+        // If it's the first update, show a message and set the flag to false
+        if (_isFirstDriverUpdate) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('Position du chauffeur détectée'),
+            duration: Duration(seconds: 2),
+          ));
+          _isFirstDriverUpdate = false;
+        }
+      } else {
+        // If auto-focus is disabled, show a small notification about the update
+        // without moving the camera
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(
+              'Position du chauffeur mise à jour (${_formatTimestamp(timestamp)})'),
+          duration: const Duration(seconds: 1),
+          backgroundColor: Colors.amber[700],
+          behavior: SnackBarBehavior.floating,
+          margin: const EdgeInsets.only(bottom: 80.0, left: 10.0, right: 10.0),
+        ));
+      }
 
       debugPrint(
           'Updated marker for driver $driverId at $latitude, $longitude');
     } catch (e) {
       debugPrint('Error updating driver marker: $e');
+      debugPrint('Stack trace: ${StackTrace.current}');
+    }
+  }
+
+  // Animate to driver position
+  Future<void> _animateToDriverPosition(LatLng position) async {
+    try {
+      final controller = await _controller.future;
+      controller.animateCamera(
+        CameraUpdate.newCameraPosition(
+          CameraPosition(
+            target: position,
+            zoom: 16.0,
+          ),
+        ),
+      );
+    } catch (e) {
+      debugPrint('Error animating to driver position: $e');
     }
   }
 
@@ -1478,6 +1598,29 @@ class _MapScreenState extends State<MapScreen> {
         content: Text('Driver location not available'),
         backgroundColor: Colors.orange,
       ));
+    }
+  }
+
+  // Save auto-focus preference
+  Future<void> _saveAutoFocusPreference(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('auto_focus_driver', value);
+  }
+
+  // Load auto-focus preference
+  Future<void> _loadAutoFocusPreference() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final savedValue = prefs.getBool('auto_focus_driver');
+
+      // Only update if the value exists in SharedPreferences
+      if (savedValue != null) {
+        setState(() {
+          _autoFocusOnDriver = savedValue;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading auto-focus preference: $e');
     }
   }
 
@@ -1636,8 +1779,7 @@ class _MapScreenState extends State<MapScreen> {
                 ));
               }
             },
-          ),
-          // Add a button to focus on the driver's location
+          ), // Add a button to focus on the driver's location
           const SizedBox(height: 16),
           FloatingActionButton(
             heroTag: 'driver_location',
@@ -1646,6 +1788,32 @@ class _MapScreenState extends State<MapScreen> {
             onPressed: () {
               _focusOnDriverLocation("1"); // Focus on driver ID 1
             },
+            tooltip: 'Focus on driver',
+          ), // Add a toggle button for auto-focusing on driver updates
+          const SizedBox(height: 16),
+          FloatingActionButton(
+            heroTag: 'auto_focus',
+            backgroundColor:
+                _autoFocusOnDriver ? Colors.green : const Color(0xFF0E2A47),
+            child: Icon(_autoFocusOnDriver
+                ? Icons.track_changes
+                : Icons.track_changes_outlined),
+            onPressed: () {
+              setState(() {
+                _autoFocusOnDriver = !_autoFocusOnDriver;
+              });
+
+              // Save the preference
+              _saveAutoFocusPreference(_autoFocusOnDriver);
+
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                content: Text(_autoFocusOnDriver
+                    ? 'Auto-focus sur chauffeur activé'
+                    : 'Auto-focus sur chauffeur désactivé'),
+                duration: const Duration(seconds: 2),
+              ));
+            },
+            tooltip: 'Toggle auto-focus on driver',
           ),
         ]));
   }

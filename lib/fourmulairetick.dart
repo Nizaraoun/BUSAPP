@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_application_1/historique_tickets.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class FormulaireTicket extends StatefulWidget {
   const FormulaireTicket({Key? key, required String title}) : super(key: key);
@@ -163,6 +164,17 @@ class _FormulaireTicketState extends State<FormulaireTicket> {
         Linename = ligne['Linename'];
       }
 
+      // Récupérer l'ID utilisateur actuel via Firebase Auth
+      String userId = 'anonymous';
+      try {
+        final currentUser = FirebaseAuth.instance.currentUser;
+        if (currentUser != null) {
+          userId = currentUser.uid;
+        }
+      } catch (e) {
+        print("Erreur récupération utilisateur: $e");
+      }
+
       // Données à enregistrer
       Map<String, dynamic> donnees = {
         'nom': _nomController.text,
@@ -175,6 +187,7 @@ class _FormulaireTicketState extends State<FormulaireTicket> {
         'nombreTickets': int.parse(_nombreTicketsController.text),
         'prixTotal': _prixTotal,
         'dateOperation': dateOperation,
+        'userId': userId, // Ajout de l'ID utilisateur
       };
 
       // Enregistrement dans Firestore
@@ -781,8 +794,6 @@ class _FormulaireTicketState extends State<FormulaireTicket> {
                 ),
               ),
               const SizedBox(height: 24),
-
-              // Boutons de navigation
               Row(
                 children: [
                   Expanded(
@@ -1029,7 +1040,6 @@ class _FormulaireTicketState extends State<FormulaireTicket> {
   }
 
   void _telechargerRecu() {
-    // Show a dialog to preview the receipt before "downloading"
     showDialog(
       context: context,
       builder: (context) => _afficherDialogueRecu(),
@@ -1129,7 +1139,6 @@ class _FormulaireTicketState extends State<FormulaireTicket> {
             ),
             const SizedBox(height: 20),
 
-            // Customer Info
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
@@ -1292,8 +1301,6 @@ class _FormulaireTicketState extends State<FormulaireTicket> {
   }
 
   void _partagerRecu() {
-    // In a real implementation, you would generate the PDF file and share it
-    // Since we don't have the PDF library installed, we'll simulate this with a message
     final String messageText = """
 REÇU DE TICKET - BUS TRACKER
 N° ${DateTime.now().millisecondsSinceEpoch.toString().substring(7, 13)}
@@ -1308,8 +1315,7 @@ TOTAL: ${_resultats['prixTotal'].toStringAsFixed(2)} DT
 Merci d'avoir voyagé avec Bus Tracker!
     """;
 
-    // This would normally share the messageText, but we're simulating
-    print(messageText); // Print to console to use the variable
+    print(messageText);
 
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
@@ -1320,7 +1326,6 @@ Merci d'avoir voyagé avec Bus Tracker!
   }
 
   void _simulerTelechargement() {
-    // Simulate a download process with a loading dialog followed by success message
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -1339,7 +1344,6 @@ Merci d'avoir voyagé avec Bus Tracker!
       ),
     );
 
-    // Simulate process completion after 2 seconds
     Future.delayed(const Duration(seconds: 2), () {
       Navigator.pop(context); // Close loading dialog
 

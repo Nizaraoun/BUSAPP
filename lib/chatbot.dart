@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'map.dart'; // Import the map.dart file
 
 class ChatPage extends StatefulWidget {
   const ChatPage({Key? key}) : super(key: key);
@@ -46,7 +47,7 @@ class _ChatPageState extends State<ChatPage> {
       text: 'Bonjour ! Que souhaitez-vous savoir aujourd\'hui ?',
       isUser: false,
       timestamp: DateTime.now(),
-      options: ['Information sur les bus'],
+      options: ['Information sur les bus', 'Tarifs de abonnement'],
     );
 
     setState(() {
@@ -131,34 +132,108 @@ class _ChatPageState extends State<ChatPage> {
 
       _scrollToBottom();
     }
+    // Si l'utilisateur demande "Tarifs de abonnement"
+    else if (selectedText == 'Tarifs de abonnement') {
+      await Future.delayed(const Duration(seconds: 1));
+
+      // Récupérer les données des tarifs depuis Firebase
+      try {
+        final QuerySnapshot querySnapshot =
+            await _firestore.collection('regional').get();
+
+        if (querySnapshot.docs.isEmpty) {
+          // Aucun tarif trouvé
+          final botMessage = ChatMessage(
+            text: 'Aucune information tarifaire disponible pour le moment.',
+            isUser: false,
+            timestamp: DateTime.now(),
+          );
+
+          setState(() {
+            _messages.add(botMessage);
+          });
+
+          await _firestore
+              .collection('chatSessions')
+              .doc(_currentChatId)
+              .collection('messages')
+              .add({
+            'text': botMessage.text,
+            'isUser': false,
+            'timestamp': Timestamp.now(),
+          });
+        } else {
+          // Construire le message avec les tarifs
+          String tarifText = 'Voici les tarifs d\'abonnement disponibles :\n\n';
+
+          for (var doc in querySnapshot.docs) {
+            Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+            String lineName = data['Linename'] ?? 'Ligne sans nom';
+            dynamic price = data['prix'] ?? 'Prix non disponible';
+
+            // Ajouter au texte principal
+            tarifText += '• $lineName: ${price.toString()} DT\n';
+          }
+
+          final botMessage = ChatMessage(
+            text: tarifText,
+            isUser: false,
+            timestamp: DateTime.now(),
+            options:
+                null, // Ne pas fournir d'options pour rendre les tarifs cliquables
+          );
+
+          setState(() {
+            _messages.add(botMessage);
+          });
+
+          await _firestore
+              .collection('chatSessions')
+              .doc(_currentChatId)
+              .collection('messages')
+              .add({
+            'text': botMessage.text,
+            'isUser': false,
+            'timestamp': Timestamp.now(),
+          });
+        }
+      } catch (e) {
+        // En cas d'erreur lors de la récupération des données
+        final botMessage = ChatMessage(
+          text:
+              'Désolé, une erreur s\'est produite lors de la récupération des tarifs.',
+          isUser: false,
+          timestamp: DateTime.now(),
+        );
+
+        setState(() {
+          _messages.add(botMessage);
+        });
+
+        await _firestore
+            .collection('chatSessions')
+            .doc(_currentChatId)
+            .collection('messages')
+            .add({
+          'text': botMessage.text,
+          'isUser': false,
+          'timestamp': Timestamp.now(),
+        });
+      }
+
+      _scrollToBottom();
+    }
     // Si l'utilisateur sélectionne un bus spécifique
     else if (selectedText.contains(' - ')) {
-      final selectedBusCode = selectedText.split(' - ')[0];
-      final selectedBus = _busOptions.firstWhere(
-          (bus) => bus['busCode'] == selectedBusCode,
-          orElse: () => {});
-
-      if (selectedBus.isNotEmpty) {
-        final busDoc =
-            await _firestore.collection('buses').doc(selectedBus['id']).get();
-        final List<dynamic> stations =
-            busDoc.data()?['station'] ?? busDoc.data()?['stations'] ?? [];
-
-        List<String> stationNames = [];
-        for (var station in stations) {
-          if (station['name'] != null) {
-            stationNames.add(station['name']);
-          }
-        }
-
-        final stationText = stationNames.isNotEmpty
-            ? 'Les stations de ce bus sont :\n\n${stationNames.join('\n')}'
-            : 'Aucune station trouvée pour ce bus.';
+      // Pour les lignes du tarif d'abonnement (pattern: "Linename - Prix DT")
+      if (selectedText.contains(' DT')) {
+        final selectedLineName = selectedText.split(' - ')[0];
 
         await Future.delayed(const Duration(seconds: 1));
 
         final botResponse = ChatMessage(
-          text: stationText,
+          text:
+              'Vous avez sélectionné la ligne $selectedLineName. Pour souscrire à cet abonnement, veuillez vous rendre dans la section "Abonnement" de l\'application.',
           isUser: false,
           timestamp: DateTime.now(),
         );
@@ -178,6 +253,57 @@ class _ChatPageState extends State<ChatPage> {
         });
 
         _scrollToBottom();
+      }
+      // Pour les bus (pattern: "busCode - lineName")
+      else {
+        final selectedBusCode = selectedText.split(' - ')[0];
+        final selectedBus = _busOptions.firstWhere(
+            (bus) => bus['busCode'] == selectedBusCode,
+            orElse: () => {});
+
+        if (selectedBus.isNotEmpty) {
+          final busDoc =
+              await _firestore.collection('buses').doc(selectedBus['id']).get();
+          final List<dynamic> stations =
+              busDoc.data()?['station'] ?? busDoc.data()?['stations'] ?? [];
+
+          List<String> stationNames = [];
+          for (var station in stations) {
+            if (station['name'] != null) {
+              stationNames.add(station['name']);
+            }
+          }
+
+          final stationText = stationNames.isNotEmpty
+              ? 'Les stations de ce bus sont :\n\n${stationNames.join('\n')}'
+              : 'Aucune station trouvée pour ce bus.';
+
+          await Future.delayed(const Duration(seconds: 1));
+
+          final botResponse = ChatMessage(
+            text: stationText,
+            isUser: false,
+            timestamp: DateTime.now(),
+            isStationList:
+                true, // Indication que ce message contient une liste de stations
+          );
+
+          setState(() {
+            _messages.add(botResponse);
+          });
+
+          await _firestore
+              .collection('chatSessions')
+              .doc(_currentChatId)
+              .collection('messages')
+              .add({
+            'text': botResponse.text,
+            'isUser': false,
+            'timestamp': Timestamp.now(),
+          });
+
+          _scrollToBottom();
+        }
       }
     }
   }
@@ -214,7 +340,16 @@ class _ChatPageState extends State<ChatPage> {
               },
             ),
           ),
-          if (_messages.isEmpty || _messages.last.isUser)
+          // Afficher les boutons de questions prédéfinies si:
+          // - La liste des messages est vide, ou
+          // - Le dernier message est de l'utilisateur, ou
+          // - Le dernier message concerne les tarifs d'abonnement
+          // - Le dernier message est une liste de stations
+          if (_messages.isEmpty ||
+              _messages.last.isUser ||
+              (_messages.last.text
+                  .contains('Voici les tarifs d\'abonnement')) ||
+              (_messages.last.text.contains('Les stations de ce bus sont')))
             _buildPredefinedQuestions(),
         ],
       ),
@@ -252,6 +387,7 @@ class _ChatPageState extends State<ChatPage> {
             runSpacing: 8.0,
             children: [
               _buildQuestionButton('Information sur les bus'),
+              _buildQuestionButton('Tarifs de abonnement'),
             ],
           ),
         ],
@@ -280,12 +416,14 @@ class ChatMessage extends StatelessWidget {
   final bool isUser;
   final DateTime timestamp;
   final List<String>? options;
+  final bool isStationList;
 
   const ChatMessage({
     required this.text,
     required this.isUser,
     required this.timestamp,
     this.options,
+    this.isStationList = false,
     Key? key,
   }) : super(key: key);
 
@@ -321,7 +459,32 @@ class ChatMessage extends StatelessWidget {
                             : Colors.grey.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(12.0),
                       ),
-                      child: Text(text),
+                      child: isStationList
+                          ? InkWell(
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                      builder: (context) => const MapScreen()),
+                                );
+                              },
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(text),
+                                  const SizedBox(height: 8),
+                                  const Text(
+                                    "Cliquez pour voir sur la carte",
+                                    style: TextStyle(
+                                      color: Color(0xFF0E2A47),
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            )
+                          : Text(text),
                     ),
                     Padding(
                       padding: const EdgeInsets.only(top: 4.0),

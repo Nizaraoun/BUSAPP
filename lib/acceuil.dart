@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_application_1/authentication.dart';
 import 'package:flutter_application_1/chatbot.dart';
+import 'package:flutter_application_1/historique_abonnements.dart';
 import 'package:flutter_application_1/historique_tickets.dart';
 import 'package:flutter_application_1/login.dart';
 import 'package:flutter_application_1/map.dart';
@@ -99,16 +100,6 @@ class _AccueilPageState extends State<AccueilPage>
             mainAxisSize: MainAxisSize.min,
             children: [
               _buildMenuOption(
-                icon: Icons.settings,
-                title: "Paramètres",
-                onTap: () {
-                  Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text("Paramètres sélectionnés")),
-                  );
-                },
-              ),
-              _buildMenuOption(
                 icon: Icons.person,
                 title: "Profil",
                 onTap: () {
@@ -127,6 +118,17 @@ class _AccueilPageState extends State<AccueilPage>
                     context,
                     MaterialPageRoute(
                         builder: (context) => const HistoriqueTickets()),
+                  );
+                },
+              ),
+              _buildMenuOption(
+                icon: Icons.payment,
+                title: "Historique des abonnements",
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (context) => const HistoriqueAbonnements()),
                   );
                 },
               ),

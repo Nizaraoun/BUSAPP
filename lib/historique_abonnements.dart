@@ -9,26 +9,26 @@ import 'package:intl/intl.dart';
 import 'package:printing/printing.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
-class HistoriqueTickets extends StatefulWidget {
-  const HistoriqueTickets({Key? key}) : super(key: key);
+class HistoriqueAbonnements extends StatefulWidget {
+  const HistoriqueAbonnements({Key? key}) : super(key: key);
 
   @override
-  State<HistoriqueTickets> createState() => _HistoriqueTicketsState();
+  State<HistoriqueAbonnements> createState() => _HistoriqueAbonnementsState();
 }
 
-class _HistoriqueTicketsState extends State<HistoriqueTickets> {
+class _HistoriqueAbonnementsState extends State<HistoriqueAbonnements> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   bool _isLoading = true;
-  List<Map<String, dynamic>> _tickets = [];
+  List<Map<String, dynamic>> _abonnements = [];
   String _errorMessage = '';
 
   @override
   void initState() {
     super.initState();
-    _chargerHistoriqueTickets();
+    _chargerHistoriqueAbonnements();
   }
 
-  Future<void> _chargerHistoriqueTickets() async {
+  Future<void> _chargerHistoriqueAbonnements() async {
     setState(() {
       _isLoading = true;
       _errorMessage = '';
@@ -40,41 +40,46 @@ class _HistoriqueTicketsState extends State<HistoriqueTickets> {
       String? userId = currentUser?.uid;
 
       Query query = _firestore
-          .collection('tickets')
+          .collection('abonnements')
           .orderBy('dateOperation', descending: true);
 
       // Si l'utilisateur est connecté, on filtre par son ID
       if (userId != null) {
+        print('User ID: $userId');
         query = query.where('userId', isEqualTo: userId);
       }
 
       QuerySnapshot querySnapshot = await query.get();
 
-      List<Map<String, dynamic>> tickets = [];
+      List<Map<String, dynamic>> abonnements = [];
       for (var doc in querySnapshot.docs) {
         Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
-        tickets.add({
+        abonnements.add({
           'id': doc.id,
           'nom': data['nom'] ?? 'N/A',
           'prenom': data['prenom'] ?? 'N/A',
+          'dateNaissance': data['dateNaissance'] ?? 'N/A',
+          'classe': data['classe'] ?? 'N/A',
           'ligne': data['ligne'] ?? 'N/A',
+          'depart': data['depart'] ?? 'N/A',
+          'arret': data['arret'] ?? 'N/A',
+          'typeAbonnement': data['typeAbonnement'] ?? 'N/A',
           'prix': data['prix'] ?? 0.0,
-          'nombreTickets': data['nombreTickets'] ?? 1,
-          'prixTotal': data['prixTotal'] ?? 0.0,
           'dateOperation': data['dateOperation'] ?? 'N/A',
+          'dateFinAbonnement': data['dateFinAbonnement'] ?? 'N/A',
           'numeroCarte': data['numeroCarte'] ?? 'N/A',
         });
       }
 
       setState(() {
-        _tickets = tickets;
+        _abonnements = abonnements;
         _isLoading = false;
       });
     } catch (e) {
       setState(() {
         _isLoading = false;
         _errorMessage =
-            'Erreur lors du chargement des tickets: ${e.toString()}';
+            'Erreur lors du chargement des abonnements: ${e.toString()}';
       });
     }
   }
@@ -83,9 +88,10 @@ class _HistoriqueTicketsState extends State<HistoriqueTickets> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Historique des Tickets'),
+        title: const Text('Historique des Abonnements'),
         centerTitle: true,
         backgroundColor: const Color(0xFF0E2A47),
+        foregroundColor: Colors.white,
       ),
       body: Container(
         decoration: BoxDecoration(
@@ -99,9 +105,9 @@ class _HistoriqueTicketsState extends State<HistoriqueTickets> {
             ? const Center(child: CircularProgressIndicator())
             : _errorMessage.isNotEmpty
                 ? _buildErrorView()
-                : _tickets.isEmpty
+                : _abonnements.isEmpty
                     ? _buildEmptyView()
-                    : _buildTicketsList(),
+                    : _buildAbonnementsList(),
       ),
     );
   }
@@ -124,7 +130,7 @@ class _HistoriqueTicketsState extends State<HistoriqueTickets> {
           ),
           const SizedBox(height: 16),
           ElevatedButton(
-            onPressed: _chargerHistoriqueTickets,
+            onPressed: _chargerHistoriqueAbonnements,
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF0E2A47),
               foregroundColor: Colors.white,
@@ -145,15 +151,15 @@ class _HistoriqueTicketsState extends State<HistoriqueTickets> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(
-            Icons.history,
+            Icons.card_membership,
             color: Colors.grey[400],
             size: 80,
           ),
           const SizedBox(height: 16),
           Text(
             currentUser != null
-                ? 'Vous n\'avez pas encore acheté de tickets'
-                : 'Aucun ticket dans l\'historique',
+                ? 'Vous n\'avez pas encore souscrit d\'abonnement'
+                : 'Aucun abonnement dans l\'historique',
             style: const TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
@@ -163,8 +169,8 @@ class _HistoriqueTicketsState extends State<HistoriqueTickets> {
           const SizedBox(height: 8),
           Text(
             currentUser != null
-                ? 'Les tickets achetés apparaîtront ici'
-                : 'Connectez-vous pour voir vos tickets',
+                ? 'Les abonnements souscrits apparaîtront ici'
+                : 'Connectez-vous pour voir vos abonnements',
             style: const TextStyle(
               color: Colors.grey,
             ),
@@ -175,22 +181,39 @@ class _HistoriqueTicketsState extends State<HistoriqueTickets> {
     );
   }
 
-  Widget _buildTicketsList() {
+  Widget _buildAbonnementsList() {
     return RefreshIndicator(
-      onRefresh: _chargerHistoriqueTickets,
+      onRefresh: _chargerHistoriqueAbonnements,
       color: const Color(0xFF0E2A47),
       child: ListView.builder(
         padding: const EdgeInsets.all(16),
-        itemCount: _tickets.length,
+        itemCount: _abonnements.length,
         itemBuilder: (context, index) {
-          final ticket = _tickets[index];
-          return _buildTicketCard(ticket);
+          final abonnement = _abonnements[index];
+          return _buildAbonnementCard(abonnement);
         },
       ),
     );
   }
 
-  Widget _buildTicketCard(Map<String, dynamic> ticket) {
+  Widget _buildAbonnementCard(Map<String, dynamic> abonnement) {
+    // Vérifier si l'abonnement est actif ou expiré
+    bool isExpired = false;
+    try {
+      final dateFinParts = abonnement['dateFinAbonnement'].split('/');
+      if (dateFinParts.length == 3) {
+        final dateFinJour = int.parse(dateFinParts[0]);
+        final dateFinMois = int.parse(dateFinParts[1]);
+        final dateFinAnnee = int.parse(dateFinParts[2]);
+
+        final dateFin = DateTime(dateFinAnnee, dateFinMois, dateFinJour);
+        isExpired = dateFin.isBefore(DateTime.now());
+      }
+    } catch (e) {
+      // En cas d'erreur de parsing, on considère que l'abonnement est valide
+      isExpired = false;
+    }
+
     return Card(
       elevation: 3,
       margin: const EdgeInsets.only(bottom: 16),
@@ -198,7 +221,7 @@ class _HistoriqueTicketsState extends State<HistoriqueTickets> {
         borderRadius: BorderRadius.circular(12),
       ),
       child: InkWell(
-        onTap: () => _afficherDetailsTicket(ticket),
+        onTap: () => _afficherDetailsAbonnement(abonnement),
         borderRadius: BorderRadius.circular(12),
         child: Padding(
           padding: const EdgeInsets.all(16),
@@ -208,12 +231,14 @@ class _HistoriqueTicketsState extends State<HistoriqueTickets> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    ticket['ligne'],
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF0E2A47),
+                  Expanded(
+                    child: Text(
+                      abonnement['ligne'],
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF0E2A47),
+                      ),
                     ),
                   ),
                   Container(
@@ -222,24 +247,46 @@ class _HistoriqueTicketsState extends State<HistoriqueTickets> {
                       vertical: 4,
                     ),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF0E2A47).withOpacity(0.1),
+                      color: isExpired
+                          ? Colors.red.withOpacity(0.1)
+                          : Colors.green.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
-                      '${ticket['nombreTickets']} ticket${ticket['nombreTickets'] > 1 ? 's' : ''}',
-                      style: const TextStyle(
+                      isExpired ? 'Expiré' : 'Actif',
+                      style: TextStyle(
                         fontWeight: FontWeight.bold,
-                        color: Color(0xFF0E2A47),
+                        color: isExpired ? Colors.red : Colors.green,
                       ),
                     ),
                   ),
                 ],
               ),
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 8,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF0E2A47).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  abonnement['typeAbonnement'],
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF0E2A47),
+                  ),
+                ),
+              ),
               const Divider(),
-              _buildInfoRow('Date', ticket['dateOperation']),
               _buildInfoRow(
-                  'Total payé', '${ticket['prixTotal'].toStringAsFixed(2)} DT'),
-              _buildInfoRow('Passager', '${ticket['prenom']} ${ticket['nom']}'),
+                  'Abonné', '${abonnement['prenom']} ${abonnement['nom']}'),
+              _buildInfoRow('Début', abonnement['dateOperation']),
+              _buildInfoRow('Fin', abonnement['dateFinAbonnement']),
+              _buildInfoRow(
+                  'Prix', '${abonnement['prix'].toStringAsFixed(2)} DT'),
             ],
           ),
         ),
@@ -277,7 +324,24 @@ class _HistoriqueTicketsState extends State<HistoriqueTickets> {
     );
   }
 
-  void _afficherDetailsTicket(Map<String, dynamic> ticket) {
+  void _afficherDetailsAbonnement(Map<String, dynamic> abonnement) {
+    // Vérifier si l'abonnement est actif ou expiré
+    bool isExpired = false;
+    try {
+      final dateFinParts = abonnement['dateFinAbonnement'].split('/');
+      if (dateFinParts.length == 3) {
+        final dateFinJour = int.parse(dateFinParts[0]);
+        final dateFinMois = int.parse(dateFinParts[1]);
+        final dateFinAnnee = int.parse(dateFinParts[2]);
+
+        final dateFin = DateTime(dateFinAnnee, dateFinMois, dateFinJour);
+        isExpired = dateFin.isBefore(DateTime.now());
+      }
+    } catch (e) {
+      // En cas d'erreur de parsing, on considère que l'abonnement est valide
+      isExpired = false;
+    }
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -295,15 +359,33 @@ class _HistoriqueTicketsState extends State<HistoriqueTickets> {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                Wrap(
                   children: [
                     const Text(
-                      'Détails du Ticket',
+                      'Détails de l\'Abonnement',
                       style: TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
                         color: Color(0xFF0E2A47),
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: isExpired
+                            ? Colors.red.withOpacity(0.1)
+                            : Colors.green.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        isExpired ? 'Expiré' : 'Actif',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: isExpired ? Colors.red : Colors.green,
+                        ),
                       ),
                     ),
                     IconButton(
@@ -315,26 +397,32 @@ class _HistoriqueTicketsState extends State<HistoriqueTickets> {
                 const Divider(),
                 const SizedBox(height: 16),
 
-                // Section Passager
-                _buildSectionTitle('Informations Passager'),
-                _buildDetailRow('Nom', '${ticket['prenom']} ${ticket['nom']}'),
+                // Section Abonné
+                _buildSectionTitle('Informations Abonné'),
+                _buildDetailRow(
+                    'Nom', '${abonnement['prenom']} ${abonnement['nom']}'),
+                _buildDetailRow(
+                    'Date de naissance', abonnement['dateNaissance']),
+                if (abonnement['classe'] != null &&
+                    abonnement['classe'] != 'N/A')
+                  _buildDetailRow('Classe', abonnement['classe']),
 
                 const SizedBox(height: 16),
-                // Section Billet
-                _buildSectionTitle('Informations Billet'),
-                _buildDetailRow('Ligne', ticket['ligne']),
+                // Section Abonnement
+                _buildSectionTitle('Informations Abonnement'),
+                _buildDetailRow('Type', abonnement['typeAbonnement']),
+                _buildDetailRow('Ligne', abonnement['ligne']),
+                _buildDetailRow('Départ', abonnement['depart']),
+                _buildDetailRow('Arrivée', abonnement['arret']),
+                _buildDetailRow('Date de début', abonnement['dateOperation']),
+                _buildDetailRow('Date de fin', abonnement['dateFinAbonnement']),
                 _buildDetailRow(
-                    'Prix unitaire', '${ticket['prix'].toStringAsFixed(2)} DT'),
-                _buildDetailRow(
-                    'Nombre de tickets', '${ticket['nombreTickets']}'),
-                _buildDetailRow('Prix total',
-                    '${ticket['prixTotal'].toStringAsFixed(2)} DT'),
+                    'Prix', '${abonnement['prix'].toStringAsFixed(2)} DT'),
 
                 const SizedBox(height: 16),
                 // Section Paiement
                 _buildSectionTitle('Informations Paiement'),
-                _buildDetailRow('Carte', ticket['numeroCarte']),
-                _buildDetailRow('Date d\'opération', ticket['dateOperation']),
+                _buildDetailRow('Carte', abonnement['numeroCarte']),
                 const SizedBox(height: 24),
                 SizedBox(
                   width: double.infinity,
@@ -342,7 +430,7 @@ class _HistoriqueTicketsState extends State<HistoriqueTickets> {
                     icon: const Icon(Icons.receipt_long),
                     label: const Text('TÉLÉCHARGER REÇU'),
                     onPressed: () {
-                      _genererRecu(ticket);
+                      _genererRecu(abonnement);
                     },
                     style: ElevatedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 12),
@@ -406,15 +494,32 @@ class _HistoriqueTicketsState extends State<HistoriqueTickets> {
     );
   }
 
-  void _genererRecu(Map<String, dynamic> ticket) {
+  void _genererRecu(Map<String, dynamic> abonnement) {
     // Show a dialog to preview the receipt before "downloading"
     showDialog(
       context: context,
-      builder: (context) => _afficherDialogueRecu(ticket),
+      builder: (context) => _afficherDialogueRecu(abonnement),
     );
   }
 
-  Widget _afficherDialogueRecu(Map<String, dynamic> ticket) {
+  Widget _afficherDialogueRecu(Map<String, dynamic> abonnement) {
+    // Vérifier si l'abonnement est actif ou expiré
+    bool isExpired = false;
+    try {
+      final dateFinParts = abonnement['dateFinAbonnement'].split('/');
+      if (dateFinParts.length == 3) {
+        final dateFinJour = int.parse(dateFinParts[0]);
+        final dateFinMois = int.parse(dateFinParts[1]);
+        final dateFinAnnee = int.parse(dateFinParts[2]);
+
+        final dateFin = DateTime(dateFinAnnee, dateFinMois, dateFinJour);
+        isExpired = dateFin.isBefore(DateTime.now());
+      }
+    } catch (e) {
+      // En cas d'erreur de parsing, on considère que l'abonnement est valide
+      isExpired = false;
+    }
+
     return Dialog(
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
@@ -441,7 +546,7 @@ class _HistoriqueTicketsState extends State<HistoriqueTickets> {
                         ),
                       ),
                       const Text(
-                        'Reçu de Ticket',
+                        'Reçu d\'Abonnement',
                         style: TextStyle(color: Colors.grey),
                       ),
                     ],
@@ -454,7 +559,7 @@ class _HistoriqueTicketsState extends State<HistoriqueTickets> {
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: const Icon(
-                    Icons.directions_bus,
+                    Icons.card_membership,
                     color: Colors.white,
                     size: 24,
                   ),
@@ -478,7 +583,7 @@ class _HistoriqueTicketsState extends State<HistoriqueTickets> {
                       ),
                     ),
                     Text(
-                      '#${ticket['id'].substring(0, 6).toUpperCase()}',
+                      '#${abonnement['id'].substring(0, 6).toUpperCase()}',
                       style: const TextStyle(
                         fontWeight: FontWeight.bold,
                       ),
@@ -489,16 +594,17 @@ class _HistoriqueTicketsState extends State<HistoriqueTickets> {
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     const Text(
-                      'Date',
+                      'Statut',
                       style: TextStyle(
                         color: Colors.grey,
                         fontSize: 12,
                       ),
                     ),
                     Text(
-                      ticket['dateOperation'],
-                      style: const TextStyle(
+                      isExpired ? 'EXPIRÉ' : 'ACTIF',
+                      style: TextStyle(
                         fontWeight: FontWeight.bold,
+                        color: isExpired ? Colors.red : Colors.green,
                       ),
                     ),
                   ],
@@ -531,7 +637,7 @@ class _HistoriqueTicketsState extends State<HistoriqueTickets> {
                           size: 16, color: Color(0xFF0E2A47)),
                       const SizedBox(width: 5),
                       Text(
-                        '${ticket['prenom']} ${ticket['nom']}',
+                        '${abonnement['prenom']} ${abonnement['nom']}',
                         style: const TextStyle(
                           fontWeight: FontWeight.bold,
                         ),
@@ -545,19 +651,36 @@ class _HistoriqueTicketsState extends State<HistoriqueTickets> {
                           size: 16, color: Color(0xFF0E2A47)),
                       const SizedBox(width: 5),
                       Text(
-                        '${ticket['numeroCarte']}',
+                        '${abonnement['numeroCarte']}',
                         style: const TextStyle(
                           fontWeight: FontWeight.w500,
                         ),
                       ),
                     ],
                   ),
+                  if (abonnement['classe'] != null &&
+                      abonnement['classe'] != 'N/A') ...[
+                    const SizedBox(height: 5),
+                    Row(
+                      children: [
+                        const Icon(Icons.school,
+                            size: 16, color: Color(0xFF0E2A47)),
+                        const SizedBox(width: 5),
+                        Text(
+                          '${abonnement['classe']}',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ],
               ),
             ),
             const SizedBox(height: 20),
 
-            // Ticket Details
+            // Subscription Details
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(12),
@@ -569,7 +692,7 @@ class _HistoriqueTicketsState extends State<HistoriqueTickets> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    'DÉTAILS DU TICKET',
+                    'DÉTAILS DE L\'ABONNEMENT',
                     style: TextStyle(
                       fontSize: 12,
                       color: Colors.grey,
@@ -579,31 +702,30 @@ class _HistoriqueTicketsState extends State<HistoriqueTickets> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
+                      const Text('Type'),
+                      Text(
+                        abonnement['typeAbonnement'],
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                  ),
+                  const Divider(height: 16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
                       const Text('Ligne'),
                       Text(
-                        ticket['ligne'],
+                        abonnement['ligne'],
                         style: const TextStyle(fontWeight: FontWeight.bold),
                       ),
                     ],
                   ),
                   const Divider(height: 16),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  Wrap(
                     children: [
-                      const Text('Prix unitaire'),
+                      const Text('Période'),
                       Text(
-                        '${ticket['prix'].toStringAsFixed(2)} DT',
-                        style: const TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                    ],
-                  ),
-                  const Divider(height: 16),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text('Nombre de tickets'),
-                      Text(
-                        '${ticket['nombreTickets']}',
+                        '${abonnement['dateOperation']} au ${abonnement['dateFinAbonnement']}',
                         style: const TextStyle(fontWeight: FontWeight.bold),
                       ),
                     ],
@@ -613,11 +735,11 @@ class _HistoriqueTicketsState extends State<HistoriqueTickets> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       const Text(
-                        'TOTAL',
+                        'PRIX',
                         style: TextStyle(fontWeight: FontWeight.bold),
                       ),
                       Text(
-                        '${ticket['prixTotal'].toStringAsFixed(2)} DT',
+                        '${abonnement['prix'].toStringAsFixed(2)} DT',
                         style: const TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 16,
@@ -632,32 +754,38 @@ class _HistoriqueTicketsState extends State<HistoriqueTickets> {
             const SizedBox(height: 24),
 
             // Footer action buttons
-            Wrap(
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
-                ElevatedButton.icon(
-                  icon: const Icon(Icons.share),
-                  label: const Text('PARTAGER'),
-                  onPressed: () {
-                    Navigator.pop(context);
-                    _partagerRecu(ticket);
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.white,
-                    foregroundColor: const Color(0xFF0E2A47),
-                    elevation: 0,
-                    side: const BorderSide(color: Color(0xFF0E2A47)),
+                Expanded(
+                  child: ElevatedButton.icon(
+                    icon: const Icon(Icons.share),
+                    label: const Text('PARTAGER'),
+                    onPressed: () {
+                      Navigator.pop(context);
+                      _partagerRecu(abonnement);
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.white,
+                      foregroundColor: const Color(0xFF0E2A47),
+                      elevation: 0,
+                      side: const BorderSide(color: Color(0xFF0E2A47)),
+                    ),
                   ),
                 ),
-                ElevatedButton.icon(
-                  icon: const Icon(Icons.download),
-                  label: const Text('ENREGISTRER'),
-                  onPressed: () {
-                    Navigator.pop(context);
-                    _telechargerRecu(ticket);
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF0E2A47),
-                    foregroundColor: Colors.white,
+                const SizedBox(width: 10),
+                Expanded(
+                  child: ElevatedButton.icon(
+                    icon: const Icon(Icons.download),
+                    label: const Text('ENREGISTRER'),
+                    onPressed: () {
+                      Navigator.pop(context);
+                      _telechargerRecu(abonnement);
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF0E2A47),
+                      foregroundColor: Colors.white,
+                    ),
                   ),
                 ),
               ],
@@ -668,7 +796,7 @@ class _HistoriqueTicketsState extends State<HistoriqueTickets> {
     );
   }
 
-  void _telechargerRecu(Map<String, dynamic> ticket) async {
+  void _telechargerRecu(Map<String, dynamic> abonnement) async {
     // Show loading dialog
     showDialog(
       context: context,
@@ -693,13 +821,14 @@ class _HistoriqueTicketsState extends State<HistoriqueTickets> {
       if (context.mounted) Navigator.pop(context);
 
       // Create PDF document
-      final pdf = await _generateTicketPdf(ticket);
+      final pdf = await _generateAbonnementPdf(abonnement);
 
       // Show PDF preview with download option using the printing package
       if (context.mounted) {
         await Printing.layoutPdf(
           onLayout: (PdfPageFormat format) async => pdf.save(),
-          name: 'Ticket_${ticket["id"].substring(0, 6).toUpperCase()}.pdf',
+          name:
+              'Abonnement_${abonnement["id"].substring(0, 6).toUpperCase()}.pdf',
         );
       }
 
@@ -732,11 +861,29 @@ class _HistoriqueTicketsState extends State<HistoriqueTickets> {
     }
   }
 
-  Future<pw.Document> _generateTicketPdf(Map<String, dynamic> ticket) async {
+  Future<pw.Document> _generateAbonnementPdf(
+      Map<String, dynamic> abonnement) async {
     // Load a font with Unicode support
     final font = await PdfGoogleFonts.nunitoRegular();
     final fontBold = await PdfGoogleFonts.nunitoBold();
     final fontItalic = await PdfGoogleFonts.nunitoItalic();
+
+    // Vérifier si l'abonnement est actif ou expiré
+    bool isExpired = false;
+    try {
+      final dateFinParts = abonnement['dateFinAbonnement'].split('/');
+      if (dateFinParts.length == 3) {
+        final dateFinJour = int.parse(dateFinParts[0]);
+        final dateFinMois = int.parse(dateFinParts[1]);
+        final dateFinAnnee = int.parse(dateFinParts[2]);
+
+        final dateFin = DateTime(dateFinAnnee, dateFinMois, dateFinJour);
+        isExpired = dateFin.isBefore(DateTime.now());
+      }
+    } catch (e) {
+      // En cas d'erreur de parsing, on considère que l'abonnement est valide
+      isExpired = false;
+    }
 
     final pdf = pw.Document();
 
@@ -765,7 +912,7 @@ class _HistoriqueTicketsState extends State<HistoriqueTickets> {
                           ),
                         ),
                         pw.Text(
-                          'Reçu de Ticket',
+                          'Reçu d\'Abonnement',
                           style: pw.TextStyle(
                             font: font,
                             color: PdfColors.grey,
@@ -792,7 +939,7 @@ class _HistoriqueTicketsState extends State<HistoriqueTickets> {
                 ),
                 pw.Divider(height: 30),
 
-                // Receipt Number and Date
+                // Receipt Number and Status
                 pw.Row(
                   mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                   children: [
@@ -808,7 +955,7 @@ class _HistoriqueTicketsState extends State<HistoriqueTickets> {
                           ),
                         ),
                         pw.Text(
-                          '#${ticket['id'].substring(0, 6).toUpperCase()}',
+                          '#${abonnement['id'].substring(0, 6).toUpperCase()}',
                           style: pw.TextStyle(
                             font: fontBold,
                           ),
@@ -819,7 +966,7 @@ class _HistoriqueTicketsState extends State<HistoriqueTickets> {
                       crossAxisAlignment: pw.CrossAxisAlignment.end,
                       children: [
                         pw.Text(
-                          'Date',
+                          'Statut',
                           style: pw.TextStyle(
                             font: font,
                             color: PdfColors.grey,
@@ -827,9 +974,10 @@ class _HistoriqueTicketsState extends State<HistoriqueTickets> {
                           ),
                         ),
                         pw.Text(
-                          ticket['dateOperation'],
+                          isExpired ? 'EXPIRÉ' : 'ACTIF',
                           style: pw.TextStyle(
                             font: fontBold,
+                            color: isExpired ? PdfColors.red : PdfColors.green,
                           ),
                         ),
                       ],
@@ -861,7 +1009,7 @@ class _HistoriqueTicketsState extends State<HistoriqueTickets> {
                       pw.Row(
                         children: [
                           pw.Text(
-                            '${ticket['prenom']} ${ticket['nom']}',
+                            'Nom: ${abonnement['prenom']} ${abonnement['nom']}',
                             style: pw.TextStyle(
                               font: fontBold,
                             ),
@@ -872,7 +1020,33 @@ class _HistoriqueTicketsState extends State<HistoriqueTickets> {
                       pw.Row(
                         children: [
                           pw.Text(
-                            'Carte: ${ticket['numeroCarte']}',
+                            'Date de naissance: ${abonnement['dateNaissance']}',
+                            style: pw.TextStyle(
+                              font: font,
+                            ),
+                          ),
+                        ],
+                      ),
+                      if (abonnement['classe'] != null &&
+                          abonnement['classe'] != 'N/A')
+                        pw.SizedBox(height: 5),
+                      if (abonnement['classe'] != null &&
+                          abonnement['classe'] != 'N/A')
+                        pw.Row(
+                          children: [
+                            pw.Text(
+                              'Classe: ${abonnement['classe']}',
+                              style: pw.TextStyle(
+                                font: font,
+                              ),
+                            ),
+                          ],
+                        ),
+                      pw.SizedBox(height: 5),
+                      pw.Row(
+                        children: [
+                          pw.Text(
+                            'Carte: ${abonnement['numeroCarte']}',
                             style: pw.TextStyle(
                               font: font,
                             ),
@@ -884,7 +1058,7 @@ class _HistoriqueTicketsState extends State<HistoriqueTickets> {
                 ),
                 pw.SizedBox(height: 20),
 
-                // Ticket Details
+                // Abonnement Details
                 pw.Container(
                   width: double.infinity,
                   padding: const pw.EdgeInsets.all(12),
@@ -897,7 +1071,7 @@ class _HistoriqueTicketsState extends State<HistoriqueTickets> {
                     crossAxisAlignment: pw.CrossAxisAlignment.start,
                     children: [
                       pw.Text(
-                        'DÉTAILS DU TICKET',
+                        'DÉTAILS DE L\'ABONNEMENT',
                         style: pw.TextStyle(
                           font: font,
                           fontSize: 12,
@@ -908,9 +1082,21 @@ class _HistoriqueTicketsState extends State<HistoriqueTickets> {
                       pw.Row(
                         mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                         children: [
+                          pw.Text('Type d\'abonnement',
+                              style: pw.TextStyle(font: font)),
+                          pw.Text(
+                            abonnement['typeAbonnement'],
+                            style: pw.TextStyle(font: fontBold),
+                          ),
+                        ],
+                      ),
+                      pw.Divider(height: 16),
+                      pw.Row(
+                        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                        children: [
                           pw.Text('Ligne', style: pw.TextStyle(font: font)),
                           pw.Text(
-                            ticket['ligne'],
+                            abonnement['ligne'],
                             style: pw.TextStyle(font: fontBold),
                           ),
                         ],
@@ -919,10 +1105,32 @@ class _HistoriqueTicketsState extends State<HistoriqueTickets> {
                       pw.Row(
                         mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                         children: [
-                          pw.Text('Prix unitaire',
+                          pw.Text('Départ', style: pw.TextStyle(font: font)),
+                          pw.Text(
+                            abonnement['depart'],
+                            style: pw.TextStyle(font: fontBold),
+                          ),
+                        ],
+                      ),
+                      pw.Divider(height: 16),
+                      pw.Row(
+                        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                        children: [
+                          pw.Text('Arrivée', style: pw.TextStyle(font: font)),
+                          pw.Text(
+                            abonnement['arret'],
+                            style: pw.TextStyle(font: fontBold),
+                          ),
+                        ],
+                      ),
+                      pw.Divider(height: 16),
+                      pw.Row(
+                        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                        children: [
+                          pw.Text('Date d\'achat',
                               style: pw.TextStyle(font: font)),
                           pw.Text(
-                            '${ticket['prix'].toStringAsFixed(2)} DT',
+                            abonnement['dateOperation'],
                             style: pw.TextStyle(font: fontBold),
                           ),
                         ],
@@ -931,10 +1139,10 @@ class _HistoriqueTicketsState extends State<HistoriqueTickets> {
                       pw.Row(
                         mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                         children: [
-                          pw.Text('Nombre de tickets',
+                          pw.Text('Date d\'expiration',
                               style: pw.TextStyle(font: font)),
                           pw.Text(
-                            '${ticket['nombreTickets']}',
+                            abonnement['dateFinAbonnement'],
                             style: pw.TextStyle(font: fontBold),
                           ),
                         ],
@@ -944,11 +1152,11 @@ class _HistoriqueTicketsState extends State<HistoriqueTickets> {
                         mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                         children: [
                           pw.Text(
-                            'TOTAL',
+                            'PRIX TOTAL',
                             style: pw.TextStyle(font: fontBold),
                           ),
                           pw.Text(
-                            '${ticket['prixTotal'].toStringAsFixed(2)} DT',
+                            '${abonnement['prix'].toStringAsFixed(2)} DT',
                             style: pw.TextStyle(
                               font: fontBold,
                               fontSize: 16,
@@ -982,7 +1190,7 @@ class _HistoriqueTicketsState extends State<HistoriqueTickets> {
     return pdf;
   }
 
-  void _partagerRecu(Map<String, dynamic> ticket) async {
+  void _partagerRecu(Map<String, dynamic> abonnement) async {
     // Show loading dialog
     showDialog(
       context: context,
@@ -1004,12 +1212,12 @@ class _HistoriqueTicketsState extends State<HistoriqueTickets> {
 
     try {
       // Generate PDF document using our helper method
-      final pdf = await _generateTicketPdf(ticket);
+      final pdf = await _generateAbonnementPdf(abonnement);
 
       // Get app directory to save PDF
       final output = await getTemporaryDirectory();
       final String fileName =
-          'Ticket_${ticket['id'].substring(0, 6).toUpperCase()}_${ticket['dateOperation'].replaceAll('/', '_').replaceAll(' ', '_')}.pdf';
+          'Abonnement_${abonnement['id'].substring(0, 6).toUpperCase()}_${abonnement['dateOperation'].replaceAll('/', '_').replaceAll(' ', '_')}.pdf';
       final file = File('${output.path}/$fileName');
 
       // Save PDF file
@@ -1022,8 +1230,8 @@ class _HistoriqueTicketsState extends State<HistoriqueTickets> {
       if (context.mounted) {
         await Share.shareXFiles(
           [XFile(file.path)],
-          text: 'Reçu de ticket Sotregames',
-          subject: 'Reçu de ticket Sotregames - ${ticket['ligne']}',
+          text: 'Reçu d\'abonnement Sotregames',
+          subject: 'Reçu d\'abonnement Sotregames - ${abonnement['ligne']}',
         );
       }
     } catch (e) {
