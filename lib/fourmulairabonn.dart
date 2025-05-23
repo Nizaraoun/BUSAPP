@@ -15,7 +15,6 @@ class FormulaireAbonnement extends StatefulWidget {
 class _FormulaireAbonnementState extends State<FormulaireAbonnement> {
   final _formKey = GlobalKey<FormState>();
 
-  // Contrôleurs pour les champs de texte
   final TextEditingController _nomController = TextEditingController();
   final TextEditingController _prenomController = TextEditingController();
   final TextEditingController _dateNaissanceController =
@@ -26,33 +25,35 @@ class _FormulaireAbonnementState extends State<FormulaireAbonnement> {
       TextEditingController();
   final TextEditingController _cvcController = TextEditingController();
   final TextEditingController _prixController = TextEditingController();
+  final TextEditingController _cinController = TextEditingController();
+  final TextEditingController _adressController = TextEditingController();
+  final TextEditingController _nomPrenomParentsController =
+      TextEditingController();
 
-  // Instance Firestore
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  // Variables pour les étapes de paiement
   int _etapeActuelle = 0;
   bool _paiementEnCours = false;
 
-  // Variables pour les lignes et le prix
   List<Map<String, dynamic>> _lignes = [];
   String? _ligneSelectionnee;
   String? _departSelectionnee;
   String? _arretSelectionnee;
   double _prixAbonnement = 0.0;
-  String _typeAbonnement = 'Mensuel'; // Par défaut
+  String _typeAbonnement = 'Trimestriel'; // Par défaut
 
-  // Liste des types d'abonnement
-  final List<String> _typesAbonnement = ['Mensuel', 'Trimestriel', 'Annuel'];
+  final List<String> _typesAbonnement = [
+    'Trimestriel',
+    'semestrielle',
+    'Annuel'
+  ];
 
-  // Facteurs multiplicatifs pour les types d'abonnement
   final Map<String, double> _facteursPrix = {
-    'Mensuel': 1.0,
-    'Trimestriel': 2.7, // 10% de réduction sur 3 mois
-    'Annuel': 10.0, // Environ 17% de réduction sur 12 mois
+    'Trimestriel': 1.0,
+    'semestrielle': 2.7,
+    'Annuel': 10.0,
   };
 
-  // Résultat après paiement
   bool _paiementEffectue = false;
   Map<String, dynamic> _resultats = {};
 
@@ -61,11 +62,9 @@ class _FormulaireAbonnementState extends State<FormulaireAbonnement> {
     super.initState();
     _chargerLignesBus();
 
-    // Initialiser la date de naissance
     _dateNaissanceController.text = '';
   }
 
-  // Fonction pour charger les lignes de bus régionales
   Future<void> _chargerLignesBus() async {
     try {
       QuerySnapshot querySnapshot = await _firestore.collection('ligne').get();
@@ -97,7 +96,6 @@ class _FormulaireAbonnementState extends State<FormulaireAbonnement> {
     }
   }
 
-  // Fonction pour mettre à jour le prix lorsqu'une ligne est sélectionnée
   void _mettreAJourInfosLigne(String? ligneId) {
     if (ligneId != null) {
       final ligne = _lignes.firstWhere(
@@ -116,12 +114,10 @@ class _FormulaireAbonnementState extends State<FormulaireAbonnement> {
     }
   }
 
-  // Calculer le prix total basé sur le type d'abonnement
   double _calculerPrixTotal() {
     return _prixAbonnement * (_facteursPrix[_typeAbonnement] ?? 1.0);
   }
 
-  // Mettre à jour le type d'abonnement et recalculer le prix
   void _mettreAJourTypeAbonnement(String? type) {
     if (type != null) {
       setState(() {
@@ -131,12 +127,10 @@ class _FormulaireAbonnementState extends State<FormulaireAbonnement> {
     }
   }
 
-  // Afficher le sélecteur de date
   Future<void> _selectDate(BuildContext context) async {
     final DateTime? picked = await showDatePicker(
       context: context,
-      initialDate: DateTime.now()
-          .subtract(const Duration(days: 365 * 18)), // 18 ans par défaut
+      initialDate: DateTime.now().subtract(const Duration(days: 365 * 18)),
       firstDate: DateTime(1940),
       lastDate: DateTime.now(),
       builder: (context, child) {
@@ -172,7 +166,6 @@ class _FormulaireAbonnementState extends State<FormulaireAbonnement> {
     super.dispose();
   }
 
-  // Simuler un processus de paiement avec délai
   Future<void> _simulerPaiement() async {
     setState(() {
       _paiementEnCours = true;
@@ -189,19 +182,17 @@ class _FormulaireAbonnementState extends State<FormulaireAbonnement> {
     });
   }
 
-  // Fonction pour enregistrer les données dans Firebase
   Future<void> _enregistrerDonnees() async {
     if (_formKey.currentState!.validate()) {
-      // Calculer la date de fin de l'abonnement
       DateTime dateFin;
       DateTime maintenant = DateTime.now();
 
       switch (_typeAbonnement) {
-        case 'Mensuel':
+        case 'Trimestriel':
           dateFin =
               DateTime(maintenant.year, maintenant.month + 1, maintenant.day);
           break;
-        case 'Trimestriel':
+        case 'semestrielle':
           dateFin =
               DateTime(maintenant.year, maintenant.month + 3, maintenant.day);
           break;
@@ -214,11 +205,9 @@ class _FormulaireAbonnementState extends State<FormulaireAbonnement> {
               DateTime(maintenant.year, maintenant.month + 1, maintenant.day);
       }
 
-      // Date actuelle formatée
       String dateOperation = DateFormat('dd/MM/yyyy HH:mm').format(maintenant);
       String dateExpiration = DateFormat('dd/MM/yyyy').format(dateFin);
 
-      // Récupérer le nom de la ligne
       String lineName = 'Inconnu';
       if (_ligneSelectionnee != null) {
         final ligne = _lignes.firstWhere(
@@ -232,7 +221,6 @@ class _FormulaireAbonnementState extends State<FormulaireAbonnement> {
             : 'Ligne sans nom';
       }
 
-      // Récupérer l'ID utilisateur actuel via Firebase Auth
       String userId = 'anonymous';
       try {
         final currentUser = FirebaseAuth.instance.currentUser;
@@ -243,7 +231,6 @@ class _FormulaireAbonnementState extends State<FormulaireAbonnement> {
         print("Erreur récupération utilisateur: $e");
       }
 
-      // Données à enregistrer
       Map<String, dynamic> donnees = {
         'nom': _nomController.text,
         'prenom': _prenomController.text,
@@ -259,10 +246,12 @@ class _FormulaireAbonnementState extends State<FormulaireAbonnement> {
         'prix': _calculerPrixTotal(),
         'dateOperation': dateOperation,
         'dateFinAbonnement': dateExpiration,
-        'userId': userId, // Ajout de l'ID utilisateur
+        'userId': userId,
+        'cin': _cinController.text,
+        'adresse': _adressController.text,
+        'nomPrenomParents': _nomPrenomParentsController.text,
       };
 
-      // Enregistrement dans Firestore
       try {
         await _firestore.collection('abonnements').add(donnees);
 
@@ -289,14 +278,12 @@ class _FormulaireAbonnementState extends State<FormulaireAbonnement> {
     }
   }
 
-  // Masquer le numéro de carte pour la sécurité
   String _maskCardNumber(String cardNumber) {
     if (cardNumber.length < 8) return cardNumber;
     return cardNumber.replaceRange(
         4, cardNumber.length - 4, '*' * (cardNumber.length - 8));
   }
 
-  // Avancer à l'étape suivante
   void _avancerEtape() {
     if (_formKey.currentState!.validate()) {
       setState(() {
@@ -305,7 +292,6 @@ class _FormulaireAbonnementState extends State<FormulaireAbonnement> {
     }
   }
 
-  // Revenir à l'étape précédente
   void _revenirEtape() {
     setState(() {
       _etapeActuelle = 0;
@@ -345,7 +331,6 @@ class _FormulaireAbonnementState extends State<FormulaireAbonnement> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Indicateur d'étape
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 8.0),
               child: Row(
@@ -379,8 +364,6 @@ class _FormulaireAbonnementState extends State<FormulaireAbonnement> {
               ),
             ),
             const SizedBox(height: 16),
-
-            // Titre de l'étape
             Text(
               _etapeActuelle == 0
                   ? 'Détails de l\'abonnement'
@@ -393,10 +376,7 @@ class _FormulaireAbonnementState extends State<FormulaireAbonnement> {
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 24),
-
-            // Étape 1: Détails de l'abonnement
             if (_etapeActuelle == 0) ...[
-              // Informations personnelles
               Card(
                 elevation: 3,
                 shape: RoundedRectangleBorder(
@@ -450,6 +430,57 @@ class _FormulaireAbonnementState extends State<FormulaireAbonnement> {
                         },
                       ),
                       const SizedBox(height: 16),
+                      TextFormField(
+                        controller: _cinController,
+                        decoration: InputDecoration(
+                          labelText: 'Cin',
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          prefixIcon: const Icon(Icons.card_membership),
+                        ),
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Veuillez entrer votre prénom';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: _adressController,
+                        decoration: InputDecoration(
+                          labelText: 'Adresse',
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          prefixIcon: const Icon(Icons.add_location_alt),
+                        ),
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Veuillez entrer votre prénom';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: _nomPrenomParentsController,
+                        decoration: InputDecoration(
+                          labelText: 'Nom et prenom parents',
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          prefixIcon: const Icon(Icons.person),
+                        ),
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Veuillez entrer votre nom';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 16),
                       GestureDetector(
                         onTap: () => _selectDate(context),
                         child: AbsorbPointer(
@@ -488,8 +519,6 @@ class _FormulaireAbonnementState extends State<FormulaireAbonnement> {
                 ),
               ),
               const SizedBox(height: 16),
-
-              // Détails de l'abonnement
               Card(
                 elevation: 3,
                 shape: RoundedRectangleBorder(
@@ -509,7 +538,6 @@ class _FormulaireAbonnementState extends State<FormulaireAbonnement> {
                         ),
                       ),
                       const SizedBox(height: 16),
-                      // Sélection de la ligne
                       DropdownButtonFormField<String>(
                         decoration: InputDecoration(
                           labelText: 'Ligne de bus',
@@ -537,8 +565,6 @@ class _FormulaireAbonnementState extends State<FormulaireAbonnement> {
                         },
                       ),
                       const SizedBox(height: 16),
-
-                      // Affichage de départ et arrêt
                       if (_departSelectionnee != null &&
                           _departSelectionnee!.isNotEmpty)
                         Padding(
@@ -611,8 +637,6 @@ class _FormulaireAbonnementState extends State<FormulaireAbonnement> {
                             ],
                           ),
                         ),
-
-                      // Type d'abonnement
                       DropdownButtonFormField<String>(
                         decoration: InputDecoration(
                           labelText: 'Type d\'abonnement',
@@ -643,8 +667,6 @@ class _FormulaireAbonnementState extends State<FormulaireAbonnement> {
                 ),
               ),
               const SizedBox(height: 16),
-
-              // Prix
               Card(
                 elevation: 3,
                 shape: RoundedRectangleBorder(
@@ -688,8 +710,6 @@ class _FormulaireAbonnementState extends State<FormulaireAbonnement> {
                 ),
               ),
               const SizedBox(height: 24),
-
-              // Bouton pour passer à l'étape suivante
               ElevatedButton(
                 onPressed: _avancerEtape,
                 style: ElevatedButton.styleFrom(
@@ -709,8 +729,6 @@ class _FormulaireAbonnementState extends State<FormulaireAbonnement> {
                 ),
               ),
             ],
-
-            // Étape 2: Paiement
             if (_etapeActuelle == 1) ...[
               Card(
                 elevation: 3,

@@ -75,7 +75,8 @@ class _PaymentPageState extends State<PaymentPage> {
                   // Option Abonnement
                   PaymentOptionCard(
                     title: 'Abonnement',
-                    description: 'Souscrivez à un abonnement mensuel ou annuel',
+                    description:
+                        'Souscrivez à un abonnement Trimestriel ou semestrielle',
                     icon: Icons.card_membership,
                     isSelected: _selectedOption == 'abonnement',
                     onTap: () {

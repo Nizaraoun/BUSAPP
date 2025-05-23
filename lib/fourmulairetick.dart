@@ -22,8 +22,7 @@ class _FormulaireTicketState extends State<FormulaireTicket> {
   final TextEditingController _dateExpirationController =
       TextEditingController();
   final TextEditingController _cvcController = TextEditingController();
-  final TextEditingController _nombreTicketsController =
-      TextEditingController(text: '1');
+ 
   final TextEditingController _prixController = TextEditingController();
 
   // Instance Firestore
@@ -50,18 +49,15 @@ class _FormulaireTicketState extends State<FormulaireTicket> {
 
     // Ajouter les listeners pour calculer le prix total
     _prixController.addListener(_calculerPrixTotal);
-    _nombreTicketsController.addListener(_calculerPrixTotal);
   }
 
   // Fonction pour calculer le prix total
   void _calculerPrixTotal() {
-    if (_prixController.text.isNotEmpty &&
-        _nombreTicketsController.text.isNotEmpty) {
+    if (_prixController.text.isNotEmpty) {
       try {
         double prix = double.parse(_prixController.text);
-        int nombre = int.parse(_nombreTicketsController.text);
         setState(() {
-          _prixTotal = prix * nombre;
+          _prixTotal = prix;
         });
       } catch (e) {
         setState(() {
@@ -126,7 +122,6 @@ class _FormulaireTicketState extends State<FormulaireTicket> {
     _dateExpirationController.dispose();
     _cvcController.dispose();
     _prixController.dispose();
-    _nombreTicketsController.dispose();
     super.dispose();
   }
 
@@ -184,7 +179,6 @@ class _FormulaireTicketState extends State<FormulaireTicket> {
         'ligne': Linename,
         'ligneId': _ligneSelectionnee,
         'prix': _prixUnitaire,
-        'nombreTickets': int.parse(_nombreTicketsController.text),
         'prixTotal': _prixTotal,
         'dateOperation': dateOperation,
         'userId': userId, // Ajout de l'ID utilisateur
@@ -472,33 +466,7 @@ class _FormulaireTicketState extends State<FormulaireTicket> {
                       const SizedBox(height: 16),
 
                       // Nombre de tickets
-                      TextFormField(
-                        controller: _nombreTicketsController,
-                        decoration: InputDecoration(
-                          labelText: 'Nombre de tickets',
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          prefixIcon: const Icon(Icons.confirmation_number),
-                          filled: true,
-                          fillColor: Colors.white,
-                        ),
-                        keyboardType: TextInputType.number,
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'Veuillez entrer le nombre de tickets';
-                          }
-                          try {
-                            int nombreTickets = int.parse(value);
-                            if (nombreTickets <= 0) {
-                              return 'Le nombre de tickets doit être supérieur à 0';
-                            }
-                          } catch (e) {
-                            return 'Veuillez entrer un nombre entier valide';
-                          }
-                          return null;
-                        },
-                      ),
+                     
                     ],
                   ),
                 ),
@@ -747,16 +715,7 @@ class _FormulaireTicketState extends State<FormulaireTicket> {
                         ],
                       ),
                       const Divider(),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text('Tickets:'),
-                          Text(
-                            _nombreTicketsController.text,
-                            style: const TextStyle(fontWeight: FontWeight.bold),
-                          ),
-                        ],
-                      ),
+                      
                       const Divider(),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -928,8 +887,7 @@ class _FormulaireTicketState extends State<FormulaireTicket> {
                   _infoRow('Ligne', _resultats['ligne']),
                   _infoRow('Prix unitaire',
                       '${_resultats['prix'].toStringAsFixed(2)} DT'),
-                  _infoRow(
-                      'Nombre de tickets', '${_resultats['nombreTickets']}'),
+                
                   _infoRow('Prix total',
                       '${_resultats['prixTotal'].toStringAsFixed(2)} DT'),
                   const SizedBox(height: 16),
@@ -969,7 +927,6 @@ class _FormulaireTicketState extends State<FormulaireTicket> {
                       _cvcController.clear();
                       _prixController.clear();
                       _ligneSelectionnee = null;
-                      _nombreTicketsController.text = '1';
                       _etapeActuelle = 0;
                     });
                   },
@@ -1229,16 +1186,7 @@ class _FormulaireTicketState extends State<FormulaireTicket> {
                     ],
                   ),
                   const Divider(height: 16),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text('Nombre de tickets'),
-                      Text(
-                        '${_resultats['nombreTickets']}',
-                        style: const TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                    ],
-                  ),
+                  
                   const Divider(height: 16),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1309,7 +1257,6 @@ Date: ${_resultats['dateOperation']}
 Client: ${_resultats['prenom']} ${_resultats['nom']}
 Ligne: ${_resultats['ligne']}
 Prix unitaire: ${_resultats['prix'].toStringAsFixed(2)} DT
-Nombre de tickets: ${_resultats['nombreTickets']}
 TOTAL: ${_resultats['prixTotal'].toStringAsFixed(2)} DT
 
 Merci d'avoir voyagé avec Bus Tracker!

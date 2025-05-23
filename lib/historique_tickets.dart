@@ -59,7 +59,6 @@ class _HistoriqueTicketsState extends State<HistoriqueTickets> {
           'prenom': data['prenom'] ?? 'N/A',
           'ligne': data['ligne'] ?? 'N/A',
           'prix': data['prix'] ?? 0.0,
-          'nombreTickets': data['nombreTickets'] ?? 1,
           'prixTotal': data['prixTotal'] ?? 0.0,
           'dateOperation': data['dateOperation'] ?? 'N/A',
           'numeroCarte': data['numeroCarte'] ?? 'N/A',
@@ -225,13 +224,7 @@ class _HistoriqueTicketsState extends State<HistoriqueTickets> {
                       color: const Color(0xFF0E2A47).withOpacity(0.1),
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: Text(
-                      '${ticket['nombreTickets']} ticket${ticket['nombreTickets'] > 1 ? 's' : ''}',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF0E2A47),
-                      ),
-                    ),
+                    
                   ),
                 ],
               ),
@@ -325,8 +318,7 @@ class _HistoriqueTicketsState extends State<HistoriqueTickets> {
                 _buildDetailRow('Ligne', ticket['ligne']),
                 _buildDetailRow(
                     'Prix unitaire', '${ticket['prix'].toStringAsFixed(2)} DT'),
-                _buildDetailRow(
-                    'Nombre de tickets', '${ticket['nombreTickets']}'),
+              
                 _buildDetailRow('Prix total',
                     '${ticket['prixTotal'].toStringAsFixed(2)} DT'),
 
@@ -602,10 +594,7 @@ class _HistoriqueTicketsState extends State<HistoriqueTickets> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       const Text('Nombre de tickets'),
-                      Text(
-                        '${ticket['nombreTickets']}',
-                        style: const TextStyle(fontWeight: FontWeight.bold),
-                      ),
+                      
                     ],
                   ),
                   const Divider(height: 16),
@@ -933,10 +922,7 @@ class _HistoriqueTicketsState extends State<HistoriqueTickets> {
                         children: [
                           pw.Text('Nombre de tickets',
                               style: pw.TextStyle(font: font)),
-                          pw.Text(
-                            '${ticket['nombreTickets']}',
-                            style: pw.TextStyle(font: fontBold),
-                          ),
+                          
                         ],
                       ),
                       pw.Divider(height: 16),
